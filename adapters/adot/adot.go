@@ -37,18 +37,29 @@ func Builder(bidderName openrtb_ext.BidderName, config config.Adapter) (adapters
 // MakeRequests makes the HTTP requests which should be made to fetch bids.
 func (a *adapter) MakeRequests(request *openrtb2.BidRequest, reqInfo *adapters.ExtraRequestInfo) ([]*adapters.RequestData, []error) {
 	var reqJSON []byte
+	var publisherPath string
 	var err error
 
 	if reqJSON, err = json.Marshal(request); err != nil {
 		return nil, []error{fmt.Errorf("unable to marshal openrtb request (%v)", err)}
 	}
 
+	adotExt := getImpAdotExt(&request.Imp[0])
+
 	headers := http.Header{}
 	headers.Add("Content-Type", "application/json;charset=utf-8")
 
+	if adotExt != nil {
+		publisherPath = adotExt.PublisherPath
+	} else {
+		publisherPath = ""
+	}
+
+	endpoint := strings.Replace(a.endpoint, "{PUBLISHER_PATH}", publisherPath, -1)
+
 	return []*adapters.RequestData{{
 		Method:  "POST",
-		Uri:     a.endpoint,
+		Uri:     endpoint,
 		Body:    reqJSON,
 		Headers: headers,
 	}}, nil
@@ -128,4 +139,19 @@ func resolveMacros(bid *openrtb2.Bid) {
 	price := strconv.FormatFloat(bid.Price, 'f', -1, 64)
 	bid.NURL = strings.Replace(bid.NURL, "${AUCTION_PRICE}", price, -1)
 	bid.AdM = strings.Replace(bid.AdM, "${AUCTION_PRICE}", price, -1)
+}
+
+// getImpAdotExt parses and return first imp ext or nil
+func getImpAdotExt(imp *openrtb2.Imp) *openrtb_ext.ExtImpAdot {
+	var extImpAdot openrtb_ext.ExtImpAdot
+	var extBidder adapters.ExtImpBidder
+	err := json.Unmarshal(imp.Ext, &extBidder)
+	if err != nil {
+		return nil
+	}
+	err = json.Unmarshal(extBidder.Bidder, &extImpAdot)
+	if err != nil {
+		return nil
+	}
+	return &extImpAdot
 }
