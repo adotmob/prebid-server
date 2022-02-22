@@ -44,12 +44,10 @@ func (a *adapter) MakeRequests(request *openrtb2.BidRequest, reqInfo *adapters.E
 		return nil, []error{fmt.Errorf("unable to marshal openrtb request (%v)", err)}
 	}
 
-	adotExt := getImpAdotExt(&request.Imp[0])
-
 	headers := http.Header{}
 	headers.Add("Content-Type", "application/json;charset=utf-8")
 
-	if adotExt != nil {
+	if adotExt := getImpAdotExt(&request.Imp[0]); adotExt != nil {
 		publisherPath = adotExt.PublisherPath
 	} else {
 		publisherPath = ""
